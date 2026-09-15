@@ -1,0 +1,49 @@
+name: Prueba de integracion
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verificar-juice-shop:
+    name: Verificar Juice Shop
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Ejecutar OWASP Juice Shop
+        run: |
+          docker run -d \
+            --name juice-shop-test \
+            -p 3000:3000 \
+            bkimminich/juice-shop:latest
+
+      - name: Comprobar respuesta de la aplicacion
+        run: |
+          for intento in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:3000/ > /dev/null; then
+              echo "OWASP Juice Shop respondio correctamente."
+              exit 0
+            fi
+
+            echo "Esperando el inicio de Juice Shop..."
+            sleep 5
+          done
+
+          echo "Juice Shop no respondio dentro del tiempo esperado."
+          exit 1
+
+      - name: Mostrar registros si la prueba falla
+        if: failure()
+        run: docker logs juice-shop-test
+
+      - name: Detener el contenedor
+        if: always()
+        run: docker rm -f juice-shop-test
